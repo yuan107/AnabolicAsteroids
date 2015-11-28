@@ -1,0 +1,1829 @@
+Elm.Main = Elm.Main || {};
+Elm.Main.make = function (_elm) {
+   "use strict";
+   _elm.Main = _elm.Main || {};
+   if (_elm.Main.values)
+   return _elm.Main.values;
+   var _op = {},
+   _N = Elm.Native,
+   _U = _N.Utils.make(_elm),
+   _L = _N.List.make(_elm),
+   $moduleName = "Main",
+   $Basics = Elm.Basics.make(_elm),
+   $Color = Elm.Color.make(_elm),
+   $Graphics$Collage = Elm.Graphics.Collage.make(_elm),
+   $Graphics$Element = Elm.Graphics.Element.make(_elm),
+   $Keyboard = Elm.Keyboard.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Mouse = Elm.Mouse.make(_elm),
+   $Random = Elm.Random.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $String = Elm.String.make(_elm),
+   $Text = Elm.Text.make(_elm),
+   $Time = Elm.Time.make(_elm),
+   $Window = Elm.Window.make(_elm);
+   var delta = A2($Signal.map,
+   $Time.inSeconds,
+   $Time.fps(30));
+   var timeSoFar = A3($Signal.foldp,
+   F2(function (x,y) {
+      return x + y;
+   }),
+   0,
+   delta);
+   var scaleToFit = F2(function (_v0,
+   _v1) {
+      return function () {
+         switch (_v1.ctor)
+         {case "_Tuple2":
+            return function () {
+                 switch (_v0.ctor)
+                 {case "_Tuple2":
+                    return function () {
+                         var hScale = _v0._1 / _v1._1;
+                         var wScale = _v0._0 / _v1._0;
+                         return A2($Basics.min,
+                         wScale,
+                         hScale);
+                      }();}
+                 _U.badCase($moduleName,
+                 "between lines 735 and 739");
+              }();}
+         _U.badCase($moduleName,
+         "between lines 735 and 739");
+      }();
+   });
+   var renderParticle = function (particle) {
+      return $Graphics$Collage.scale($Basics.toFloat($Basics.abs(particle.health)))($Graphics$Collage.rotate(particle.rotation)($Graphics$Collage.move({ctor: "_Tuple2"
+                                                                                                                                                       ,_0: particle.x
+                                                                                                                                                       ,_1: particle.y})($Graphics$Collage.filled(particle.color)($Graphics$Collage.circle(particle.radius)))));
+   };
+   var renderBullet = function (bullet) {
+      return $Graphics$Collage.rotate(bullet.rotation)($Graphics$Collage.move({ctor: "_Tuple2"
+                                                                              ,_0: bullet.x
+                                                                              ,_1: bullet.y})($Graphics$Collage.filled(bullet.color)($Graphics$Collage.square(bullet.radius))));
+   };
+   var renderAsteroid = function (asteroid) {
+      return $Graphics$Collage.rotate(asteroid.rotation)($Graphics$Collage.move({ctor: "_Tuple2"
+                                                                                ,_0: asteroid.x
+                                                                                ,_1: asteroid.y})($Graphics$Collage.filled(asteroid.color)(A2($Graphics$Collage.ngon,
+      8,
+      asteroid.radius * 1.25))));
+   };
+   var renderText = function (text) {
+      return text.objOptions($Graphics$Collage.move({ctor: "_Tuple2"
+                                                    ,_0: text.x
+                                                    ,_1: text.y})($Graphics$Collage.toForm($Graphics$Element.centered(text.textOptions($Text.height(text.radius)($Text.fromString(text.message)))))));
+   };
+   var wrapAny = F3(function (_v8,
+   margin,
+   any) {
+      return function () {
+         switch (_v8.ctor)
+         {case "_Tuple2":
+            return _U.cmp(any,
+              _v8._1 + margin) > 0 ? 2 * (_v8._0 - margin) + any : _U.cmp(any,
+              _v8._0 - margin) < 0 ? 2 * (_v8._1 + margin) + any : any;}
+         _U.badCase($moduleName,
+         "between lines 637 and 639");
+      }();
+   });
+   var wrapVertical = F3(function (width,
+   margin,
+   obj) {
+      return function () {
+         var upper = width / 2 + margin;
+         var lower = 0 - upper;
+         return _U.cmp(obj.y,
+         upper) > 0 ? _U.replace([["y"
+                                  ,2 * lower + obj.y]],
+         obj) : _U.cmp(obj.y,
+         lower) < 0 ? _U.replace([["y"
+                                  ,2 * upper + obj.y]],
+         obj) : obj;
+      }();
+   });
+   var wrapHorizontal = F3(function (width,
+   margin,
+   obj) {
+      return function () {
+         var upper = width / 2 + margin;
+         var lower = 0 - upper;
+         return _U.cmp(obj.x,
+         upper) > 0 ? _U.replace([["x"
+                                  ,2 * lower + obj.x]],
+         obj) : _U.cmp(obj.x,
+         lower) < 0 ? _U.replace([["x"
+                                  ,2 * upper + obj.x]],
+         obj) : obj;
+      }();
+   });
+   var wrapScreen = F3(function (_v12,
+   margin,
+   obj) {
+      return function () {
+         switch (_v12.ctor)
+         {case "_Tuple2":
+            return A3(wrapHorizontal,
+              _v12._0,
+              margin,
+              A3(wrapVertical,
+              _v12._1,
+              margin,
+              obj));}
+         _U.badCase($moduleName,
+         "on line 613, column 32 to 82");
+      }();
+   });
+   var explodeObject = F9(function (probability,
+   obj,
+   particleSize,
+   crazyness,
+   decay,
+   limit,
+   seed,
+   colors,
+   previous) {
+      return function () {
+         var size = obj.radius;
+         var $ = {ctor: "_Tuple2"
+                 ,_0: obj.x
+                 ,_1: obj.y},
+         posX = $._0,
+         posY = $._1;
+         var $ = A2($Random.generate,
+         A2($Random.$float,0,1),
+         seed),
+         chance = $._0,
+         chanceSeed = $._1;
+         return _U.cmp($List.length(previous),
+         limit) < 0 && _U.cmp(chance,
+         probability) < 0 ? function () {
+            var colorTail = _U.cmp($List.length(colors),
+            1) > 0 ? A2($List.drop,
+            1,
+            colors) : colors;
+            var maybeColor = $List.head(colors);
+            var color = function () {
+               switch (maybeColor.ctor)
+               {case "Just":
+                  return maybeColor._0;
+                  case "Nothing":
+                  return $Color.green;}
+               _U.badCase($moduleName,
+               "between lines 592 and 595");
+            }();
+            var colorRatio = $Basics.toFloat($List.length(previous)) / $Basics.toFloat(limit);
+            var $ = A2($Random.generate,
+            A2($Random.$float,1,2),
+            chanceSeed),
+            scale = $._0,
+            sSeed = $._1;
+            var $ = A2($Random.generate,
+            A2($Random.$float,1,crazyness),
+            sSeed),
+            vMultiplier = $._0,
+            vSeed = $._1;
+            var $ = A2($Random.generate,
+            A2($Random.$float,1,size),
+            vSeed),
+            r = $._0,
+            rSeed = $._1;
+            var $ = A2($Random.generate,
+            A2($Random.$float,
+            1,
+            $Basics.turns(1)),
+            rSeed),
+            theta = $._0,
+            tSeed = $._1;
+            var $ = $Basics.fromPolar({ctor: "_Tuple2"
+                                      ,_0: r
+                                      ,_1: theta}),
+            offX = $._0,
+            offY = $._1;
+            var $ = $Basics.fromPolar({ctor: "_Tuple2"
+                                      ,_0: vMultiplier
+                                      ,_1: theta}),
+            velX = $._0,
+            velY = $._1;
+            return A9(explodeObject,
+            probability,
+            obj,
+            particleSize,
+            crazyness,
+            decay,
+            limit,
+            tSeed,
+            colorTail,
+            A2($List._op["::"],
+            {_: {}
+            ,color: color
+            ,health: $Basics.round(0 - (particleSize + scale))
+            ,radius: 1
+            ,rotation: theta
+            ,vr: particleSize / decay
+            ,vx: velX
+            ,vy: velY
+            ,x: posX + offX
+            ,y: posY + offY},
+            previous));
+         }() : previous;
+      }();
+   });
+   var explodeList = F9(function (probability,
+   particleSize,
+   crazyness,
+   decay,
+   limit,
+   seed,
+   colors,
+   list,
+   previous) {
+      return function () {
+         var tail = A2($List.drop,
+         1,
+         list);
+         var maybeHead = $List.head(list);
+         return function () {
+            switch (maybeHead.ctor)
+            {case "Just":
+               return A9(explodeObject,
+                 probability,
+                 maybeHead._0,
+                 particleSize,
+                 crazyness,
+                 decay,
+                 limit,
+                 seed,
+                 colors,
+                 A9(explodeList,
+                 probability,
+                 particleSize,
+                 crazyness,
+                 decay,
+                 limit,
+                 seed,
+                 colors,
+                 tail,
+                 previous));
+               case "Nothing":
+               return previous;}
+            _U.badCase($moduleName,
+            "between lines 607 and 610");
+         }();
+      }();
+   });
+   var checkCollision = F2(function (obj1,
+   obj2) {
+      return function () {
+         var dy = obj1.y - obj2.y;
+         var dx = obj1.x - obj2.x;
+         var distance = $Basics.sqrt(dx * dx + dy * dy);
+         var equal = _U.eq(obj1.x,
+         obj2.x) && _U.eq(obj1.y,
+         obj2.y) || _U.eq(obj1.x + obj1.vx,
+         obj2.x + obj2.vx) && _U.eq(obj1.y + obj1.vy,
+         obj2.y + obj2.vy);
+         return _U.cmp(distance,
+         obj1.radius + obj2.radius) < 0 && $Basics.not(equal);
+      }();
+   });
+   var getCollision = F3(function (callback,
+   one,
+   twos) {
+      return function () {
+         var tail = A2($List.drop,
+         1,
+         twos);
+         var maybeHead = $List.head(twos);
+         return function () {
+            switch (maybeHead.ctor)
+            {case "Just":
+               return A2(checkCollision,
+                 maybeHead._0,
+                 one) ? $Maybe.Just(A2(callback,
+                 maybeHead._0,
+                 one)) : A3(getCollision,
+                 callback,
+                 one,
+                 tail);
+               case "Nothing":
+               return $Maybe.Nothing;}
+            _U.badCase($moduleName,
+            "between lines 537 and 539");
+         }();
+      }();
+   });
+   var listCollision = F3(function (callback,
+   twos,
+   ones) {
+      return function () {
+         var tail = A2($List.drop,
+         1,
+         ones);
+         var maybeHead = $List.head(ones);
+         return function () {
+            switch (maybeHead.ctor)
+            {case "Just":
+               return function () {
+                    var collidedOne = A3(getCollision,
+                    callback,
+                    maybeHead._0,
+                    twos);
+                    return function () {
+                       switch (collidedOne.ctor)
+                       {case "Just":
+                          return A2($List.append,
+                            collidedOne._0,
+                            A3(listCollision,
+                            callback,
+                            twos,
+                            tail));
+                          case "Nothing":
+                          return A2($List._op["::"],
+                            maybeHead._0,
+                            A3(listCollision,
+                            callback,
+                            twos,
+                            tail));}
+                       _U.badCase($moduleName,
+                       "between lines 552 and 555");
+                    }();
+                 }();
+               case "Nothing":
+               return _L.fromArray([]);}
+            _U.badCase($moduleName,
+            "between lines 547 and 555");
+         }();
+      }();
+   });
+   var getListCollision = F3(function (callback,
+   twos,
+   ones) {
+      return function () {
+         var tail = A2($List.drop,
+         1,
+         ones);
+         var maybeHead = $List.head(ones);
+         return function () {
+            switch (maybeHead.ctor)
+            {case "Just":
+               return function () {
+                    var collidedOne = A3(getCollision,
+                    callback,
+                    maybeHead._0,
+                    twos);
+                    return function () {
+                       switch (collidedOne.ctor)
+                       {case "Just":
+                          return A2($List.append,
+                            collidedOne._0,
+                            A3(getListCollision,
+                            callback,
+                            twos,
+                            tail));
+                          case "Nothing":
+                          return A3(getListCollision,
+                            callback,
+                            twos,
+                            tail);}
+                       _U.badCase($moduleName,
+                       "between lines 568 and 571");
+                    }();
+                 }();
+               case "Nothing":
+               return _L.fromArray([]);}
+            _U.badCase($moduleName,
+            "between lines 563 and 571");
+         }();
+      }();
+   });
+   var spawnObj = F7(function (probability,
+   _v30,
+   _v31,
+   margin,
+   seed,
+   obj,
+   previous) {
+      return function () {
+         switch (_v31.ctor)
+         {case "_Tuple2":
+            return function () {
+                 switch (_v30.ctor)
+                 {case "_Tuple2":
+                    return function () {
+                         var $ = A2($Random.generate,
+                         A2($Random.$float,0,1),
+                         seed),
+                         spawn = $._0,
+                         spawnSeed = $._1;
+                         return _U.cmp(spawn,
+                         probability) < 0 ? function () {
+                            var callback = F2(function (a,
+                            b) {
+                               return _L.fromArray([]);
+                            });
+                            var $ = A2($Random.generate,
+                            A2($Random.$int,1,2),
+                            spawnSeed),
+                            vertical = $._0,
+                            vSeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$float,1,10),
+                            vSeed),
+                            velx = $._0,
+                            vxSeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$int,1,2),
+                            vxSeed),
+                            velxSign = $._0,
+                            vxsSeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$float,1,10),
+                            vxsSeed),
+                            vely = $._0,
+                            vySeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$int,1,2),
+                            vySeed),
+                            velySign = $._0,
+                            vysSeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$float,
+                            $Basics.turns(-1.0e-2),
+                            $Basics.turns(1.0e-2)),
+                            vysSeed),
+                            vrot = $._0,
+                            vrotSeed = $._1;
+                            var $ = A2($Random.generate,
+                            A2($Random.$int,1,2),
+                            vrotSeed),
+                            side = $._0,
+                            sideSeed = $._1;
+                            var $ = _U.eq(vertical,
+                            1) ? A2($Random.generate,
+                            A2($Random.$float,
+                            1,
+                            _v31._0 + 2 * margin),
+                            spawnSeed) : _U.eq(side,
+                            1) ? {ctor: "_Tuple2"
+                                 ,_0: 0
+                                 ,_1: seed} : {ctor: "_Tuple2"
+                                              ,_0: _v31._0 + 2 * margin
+                                              ,_1: sideSeed},
+                            posx = $._0,
+                            xSeed = $._1;
+                            var $ = _U.eq(vertical,
+                            2) ? A2($Random.generate,
+                            A2($Random.$float,
+                            1,
+                            _v31._1 + 2 * margin),
+                            spawnSeed) : _U.eq(side,
+                            1) ? {ctor: "_Tuple2"
+                                 ,_0: 0
+                                 ,_1: seed} : {ctor: "_Tuple2"
+                                              ,_0: _v31._1 + 2 * margin
+                                              ,_1: xSeed},
+                            posy = $._0,
+                            ySeed = $._1;
+                            var bottom = (0 - _v31._1) / 2 - margin;
+                            var top = _v31._1 / 2 + margin;
+                            var right = _v31._0 / 2 + margin;
+                            var left = (0 - _v31._0) / 2 - margin;
+                            var movedObj = _U.replace([["x"
+                                                       ,posx + left + _v30._0]
+                                                      ,["y"
+                                                       ,posy + bottom + _v30._1]
+                                                      ,["vx"
+                                                       ,_U.eq(velxSign,
+                                                       1) ? velx : 0 - velx]
+                                                      ,["vy"
+                                                       ,_U.eq(velySign,
+                                                       1) ? vely : 0 - vely]
+                                                      ,["vr",vrot]],
+                            obj);
+                            var spawnCollision = A3(getCollision,
+                            callback,
+                            movedObj,
+                            previous);
+                            return function () {
+                               switch (spawnCollision.ctor)
+                               {case "Just": return previous;
+                                  case "Nothing":
+                                  return A2($List._op["::"],
+                                    movedObj,
+                                    previous);}
+                               _U.badCase($moduleName,
+                               "between lines 515 and 518");
+                            }();
+                         }() : previous;
+                      }();}
+                 _U.badCase($moduleName,
+                 "between lines 492 and 519");
+              }();}
+         _U.badCase($moduleName,
+         "between lines 492 and 519");
+      }();
+   });
+   var shootObj = F7(function (_v40,
+   direction,
+   velocity,
+   health,
+   radius,
+   color,
+   previous) {
+      return function () {
+         switch (_v40.ctor)
+         {case "_Tuple2":
+            return function () {
+                 var newColor = color;
+                 var newHealth = health;
+                 var newRadius = radius;
+                 var newRotation = direction;
+                 var newVY = velocity * $Basics.sin(direction);
+                 var newVX = velocity * $Basics.cos(direction);
+                 return A2($List._op["::"],
+                 {_: {}
+                 ,color: newColor
+                 ,health: newHealth
+                 ,radius: newRadius
+                 ,rotation: newRotation
+                 ,vr: -1
+                 ,vx: newVX
+                 ,vy: newVY
+                 ,x: _v40._0
+                 ,y: _v40._1},
+                 previous);
+              }();}
+         _U.badCase($moduleName,
+         "between lines 480 and 488");
+      }();
+   });
+   var Spinable = F2(function (a,
+   b) {
+      return {_: {},r: a,vr: b};
+   });
+   var moveObject = F3(function (_v44,
+   margin,
+   obj) {
+      return function () {
+         switch (_v44.ctor)
+         {case "_Tuple2":
+            return _U.replace([["x"
+                               ,A3(wrapAny,
+                               {ctor: "_Tuple2"
+                               ,_0: (0 - _v44._0) / 2
+                               ,_1: _v44._0 / 2},
+                               margin,
+                               obj.x + obj.vx)]
+                              ,["y"
+                               ,A3(wrapAny,
+                               {ctor: "_Tuple2"
+                               ,_0: (0 - _v44._1) / 2
+                               ,_1: _v44._1 / 2},
+                               margin,
+                               obj.y + obj.vy)]
+                              ,["rotation"
+                               ,A3(wrapAny,
+                               {ctor: "_Tuple2"
+                               ,_0: $Basics.turns(0)
+                               ,_1: $Basics.turns(1)},
+                               0,
+                               obj.rotation + obj.vr)]],
+              obj);}
+         _U.badCase($moduleName,
+         "on line 454, column 5 to 180");
+      }();
+   });
+   var moveObjects = F2(function (_v48,
+   objs) {
+      return function () {
+         switch (_v48.ctor)
+         {case "_Tuple2":
+            return function () {
+                 var maybeTail = $List.tail(objs);
+                 var tail = function () {
+                    switch (maybeTail.ctor)
+                    {case "Just":
+                       return maybeTail._0;
+                       case "Nothing":
+                       return _L.fromArray([]);}
+                    _U.badCase($moduleName,
+                    "between lines 464 and 467");
+                 }();
+                 var head = $List.head(objs);
+                 return function () {
+                    switch (head.ctor)
+                    {case "Just":
+                       return _U.cmp(head._0.health,
+                         0) < 0 && _U.cmp(head._0.health,
+                         $Basics.round(head._0.vr)) < 0 ? function () {
+                            var moved = A3(moveObject,
+                            {ctor: "_Tuple2"
+                            ,_0: _v48._0
+                            ,_1: _v48._1},
+                            head._0.radius,
+                            head._0);
+                            return A2($List._op["::"],
+                            _U.replace([["health"
+                                        ,head._0.health + $Basics.round(0 - head._0.vr)]],
+                            moved),
+                            A2(moveObjects,
+                            {ctor: "_Tuple2"
+                            ,_0: _v48._0
+                            ,_1: _v48._1},
+                            tail));
+                         }() : _U.cmp(head._0.health,
+                         0) > 0 ? A2($List._op["::"],
+                         A3(moveObject,
+                         {ctor: "_Tuple2"
+                         ,_0: _v48._0
+                         ,_1: _v48._1},
+                         head._0.radius,
+                         head._0),
+                         A2(moveObjects,
+                         {ctor: "_Tuple2"
+                         ,_0: _v48._0
+                         ,_1: _v48._1},
+                         tail)) : A2(moveObjects,
+                         {ctor: "_Tuple2"
+                         ,_0: _v48._0
+                         ,_1: _v48._1},
+                         tail);
+                       case "Nothing":
+                       return _L.fromArray([]);}
+                    _U.badCase($moduleName,
+                    "between lines 468 and 476");
+                 }();
+              }();}
+         _U.badCase($moduleName,
+         "between lines 460 and 476");
+      }();
+   });
+   var movePlayer = F2(function (input,
+   player) {
+      return function () {
+         var newColor = player.color;
+         var newHealth = player.health;
+         var newRadius = player.radius;
+         var speed = $Basics.sqrt(player.vx * player.vx + player.vy * player.vy);
+         var newVX = input.space ? player.vx * 0.9 : _U.cmp(speed,
+         7) < 0 ? 7 * $Basics.cos(player.rotation) : player.vx;
+         var newVY = input.space ? player.vy * 0.9 : _U.cmp(speed,
+         7) < 0 ? 7 * $Basics.sin(player.rotation) : player.vy;
+         var $ = input.window,
+         windowW = $._0,
+         windowH = $._1;
+         var $ = {ctor: "_Tuple2"
+                 ,_0: $Basics.toFloat(windowW) / 2
+                 ,_1: $Basics.toFloat(windowH) / 2},
+         centerX = $._0,
+         centerY = $._1;
+         var newX = A3(wrapAny,
+         {ctor: "_Tuple2"
+         ,_0: $Basics.toFloat(windowW) / -2
+         ,_1: $Basics.toFloat(windowW) / 2},
+         player.radius,
+         player.x + player.vx);
+         var newY = A3(wrapAny,
+         {ctor: "_Tuple2"
+         ,_0: $Basics.toFloat(windowH) / -2
+         ,_1: $Basics.toFloat(windowH) / 2},
+         player.radius,
+         player.y + player.vy);
+         var $ = input.mouse,
+         mouseX = $._0,
+         mouseY = $._1;
+         var $ = {ctor: "_Tuple2"
+                 ,_0: $Basics.toFloat(mouseX) - (centerX + player.x)
+                 ,_1: centerY - player.y - $Basics.toFloat(mouseY)},
+         dx = $._0,
+         dy = $._1;
+         var newRotation = A2($Basics.atan2,
+         dy,
+         dx);
+         return _U.replace([["x",newX]
+                           ,["y",newY]
+                           ,["vx",newVX]
+                           ,["vy",newVY]
+                           ,["rotation",newRotation]
+                           ,["radius",newRadius]
+                           ,["health",newHealth]
+                           ,["color",newColor]],
+         player);
+      }();
+   });
+   var randomInt = F2(function (seed,
+   max) {
+      return $Basics.fst($Random.generate(A2($Random.$int,
+      0,
+      max))(seed));
+   });
+   var Input = F6(function (a,
+   b,
+   c,
+   d,
+   e,
+   f) {
+      return {_: {}
+             ,click: d
+             ,ctrl: b
+             ,mouse: c
+             ,space: a
+             ,time: f
+             ,window: e};
+   });
+   var input = $Signal.sampleOn(delta)(A2($Signal._op["~"],
+   A2($Signal._op["~"],
+   A2($Signal._op["~"],
+   A2($Signal._op["~"],
+   A2($Signal._op["~"],
+   A2($Signal._op["<~"],
+   Input,
+   $Keyboard.space),
+   $Keyboard.ctrl),
+   $Mouse.position),
+   $Mouse.isDown),
+   $Window.dimensions),
+   timeSoFar));
+   var Game = function (a) {
+      return function (b) {
+         return function (c) {
+            return function (d) {
+               return function (e) {
+                  return function (f) {
+                     return function (g) {
+                        return function (h) {
+                           return function (i) {
+                              return function (j) {
+                                 return function (k) {
+                                    return function (l) {
+                                       return {_: {}
+                                              ,asteroidCount: l
+                                              ,asteroids: e
+                                              ,bullets: f
+                                              ,ctrlTime: k
+                                              ,duration: i
+                                              ,messages: h
+                                              ,particles: g
+                                              ,player: b
+                                              ,playerScore: d
+                                              ,stageName: c
+                                              ,state: a
+                                              ,timeLimit: j};
+                                    };
+                                 };
+                              };
+                           };
+                        };
+                     };
+                  };
+               };
+            };
+         };
+      };
+   };
+   var Message = function (a) {
+      return function (b) {
+         return function (c) {
+            return function (d) {
+               return function (e) {
+                  return function (f) {
+                     return function (g) {
+                        return function (h) {
+                           return function (i) {
+                              return function (j) {
+                                 return function (k) {
+                                    return {_: {}
+                                           ,health: h
+                                           ,message: i
+                                           ,objOptions: k
+                                           ,radius: g
+                                           ,rotation: e
+                                           ,textOptions: j
+                                           ,vr: f
+                                           ,vx: c
+                                           ,vy: d
+                                           ,x: a
+                                           ,y: b};
+                                 };
+                              };
+                           };
+                        };
+                     };
+                  };
+               };
+            };
+         };
+      };
+   };
+   var MovingObject = F9(function (a,
+   b,
+   c,
+   d,
+   e,
+   f,
+   g,
+   h,
+   i) {
+      return {_: {}
+             ,color: i
+             ,health: h
+             ,radius: g
+             ,rotation: e
+             ,vr: f
+             ,vx: c
+             ,vy: d
+             ,x: a
+             ,y: b};
+   });
+   var Lose = {ctor: "Lose"};
+   var Win = {ctor: "Win"};
+   var Pause = {ctor: "Pause"};
+   var Play = {ctor: "Play"};
+   var Menu = {ctor: "Menu"};
+   var Intro = {ctor: "Intro"};
+   var ctrlTimer = 100;
+   var maxBullets = 10;
+   var colorShield4 = A3($Color.rgb,
+   59,
+   134,
+   134);
+   var colorShield3 = A3($Color.rgb,
+   121,
+   189,
+   154);
+   var colorShield2 = A3($Color.rgb,
+   168,
+   219,
+   168);
+   var colorShield1 = A3($Color.rgb,
+   207,
+   240,
+   158);
+   var colorAsteroid4 = A3($Color.rgb,
+   84,
+   36,
+   55);
+   var colorAsteroid3 = A3($Color.rgb,
+   192,
+   41,
+   66);
+   var colorAsteroid2 = A3($Color.rgb,
+   217,
+   91,
+   67);
+   var colorAsteroid1 = A3($Color.rgb,
+   236,
+   208,
+   120);
+   var colorRock4 = A3($Color.rgb,
+   94,
+   48,
+   33);
+   var colorRock3 = A3($Color.rgb,
+   164,
+   74,
+   37);
+   var colorRock2 = A3($Color.rgb,
+   208,
+   96,
+   50);
+   var colorRock1 = A3($Color.rgb,
+   236,
+   186,
+   9);
+   var colorJetstream = A3($Color.rgb,
+   212,
+   30,
+   69);
+   var colorBullets = A3($Color.rgb,
+   255,
+   255,
+   255);
+   var colorShield = A3($Color.rgb,
+   105,
+   210,
+   231);
+   var renderPlayer = function (player) {
+      return function () {
+         var shieldColor = colorShield;
+         var shieldStyle = $Graphics$Collage.dashed(_U.cmp(player.health,
+         1) > 0 ? shieldColor : _U.eq(player.health,
+         1) ? $Color.red : A4($Color.rgba,
+         0,
+         0,
+         0,
+         0));
+         return $Graphics$Collage.scale(player.radius / 20)($Graphics$Collage.rotate(player.rotation)($Graphics$Collage.move({ctor: "_Tuple2"
+                                                                                                                             ,_0: player.x
+                                                                                                                             ,_1: player.y})($Graphics$Collage.group(_L.fromArray([$Graphics$Collage.outlined(shieldStyle)($Graphics$Collage.circle(20))
+                                                                                                                                                                                  ,$Graphics$Collage.filled(_U.cmp(player.health,
+                                                                                                                                                                                  0) > 0 ? player.color : colorAsteroid4)($Graphics$Collage.polygon(_L.fromArray([{ctor: "_Tuple2"
+                                                                                                                                                                                                                                                                  ,_0: -7.5
+                                                                                                                                                                                                                                                                  ,_1: 0}
+                                                                                                                                                                                                                                                                 ,{ctor: "_Tuple2"
+                                                                                                                                                                                                                                                                  ,_0: -10
+                                                                                                                                                                                                                                                                  ,_1: -10}
+                                                                                                                                                                                                                                                                 ,{ctor: "_Tuple2"
+                                                                                                                                                                                                                                                                  ,_0: 15
+                                                                                                                                                                                                                                                                  ,_1: 0}
+                                                                                                                                                                                                                                                                 ,{ctor: "_Tuple2"
+                                                                                                                                                                                                                                                                  ,_0: -10
+                                                                                                                                                                                                                                                                  ,_1: 10}])))])))));
+      }();
+   };
+   var colorSpaceship = A3($Color.rgb,
+   185,
+   215,
+   217);
+   var colorHUD3 = A3($Color.rgb,
+   50,
+   255,
+   87);
+   var colorHUD2 = A3($Color.rgb,
+   216,
+   96,
+   125);
+   var colorHUD = A3($Color.rgb,
+   174,
+   238,
+   238);
+   var startGame = {_: {}
+                   ,asteroidCount: 0
+                   ,asteroids: _L.fromArray([])
+                   ,bullets: _L.fromArray([])
+                   ,ctrlTime: 0
+                   ,duration: 0
+                   ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-100)("SPACEBAR to change directions, MOUSE to shoot, CTRL to pause \n \n Don\'t let the asteroids touch you.")(function ($) {
+                      return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                               ,"impact"]))($));
+                   })($Basics.identity)])
+                   ,particles: _L.fromArray([])
+                   ,player: A9(MovingObject,
+                   0,
+                   0,
+                   0,
+                   0,
+                   0,
+                   0,
+                   15,
+                   20,
+                   colorSpaceship)
+                   ,playerScore: 0
+                   ,stageName: "Pro 0"
+                   ,state: Menu
+                   ,timeLimit: 0};
+   var pro1 = {_: {}
+              ,asteroidCount: 0
+              ,asteroids: _L.fromArray([])
+              ,bullets: _L.fromArray([])
+              ,ctrlTime: 0
+              ,duration: 0
+              ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-100)("Prologue:")(function ($) {
+                 return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                          ,"impact"]))($));
+              })($Basics.identity)])
+              ,particles: _L.fromArray([])
+              ,player: A9(MovingObject,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              15,
+              20,
+              colorSpaceship)
+              ,playerScore: 0
+              ,stageName: "Pro 1"
+              ,state: Intro
+              ,timeLimit: 0};
+   var pro2 = {_: {}
+              ,asteroidCount: 0
+              ,asteroids: _L.fromArray([])
+              ,bullets: _L.fromArray([])
+              ,ctrlTime: 0
+              ,duration: 0
+              ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-100)("In the year 29601...")(function ($) {
+                 return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                          ,"impact"]))($));
+              })($Basics.identity)])
+              ,particles: _L.fromArray([])
+              ,player: A9(MovingObject,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              15,
+              20,
+              colorSpaceship)
+              ,playerScore: 0
+              ,stageName: "Pro 2"
+              ,state: Intro
+              ,timeLimit: 0};
+   var pro3 = {_: {}
+              ,asteroidCount: 0
+              ,asteroids: _L.fromArray([])
+              ,bullets: _L.fromArray([])
+              ,ctrlTime: 0
+              ,duration: 0
+              ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-200)("A supply ship carrying 99999 megatons of steroids collided into a comet in a horrific accident and exploded.")(function ($) {
+                 return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                          ,"impact"]))($));
+              })($Basics.identity)])
+              ,particles: _L.fromArray([])
+              ,player: A9(MovingObject,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              15,
+              20,
+              colorSpaceship)
+              ,playerScore: 0
+              ,stageName: "Pro 3"
+              ,state: Intro
+              ,timeLimit: 0};
+   var pro4 = {_: {}
+              ,asteroidCount: 0
+              ,asteroids: _L.fromArray([])
+              ,bullets: _L.fromArray([])
+              ,ctrlTime: 0
+              ,duration: 0
+              ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-200)("The resulting debris infused itself with the ship\'s cargo to create a toxic asteroid field of glass, metal, and pure muscle.")(function ($) {
+                 return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                          ,"impact"]))($));
+              })($Basics.identity)])
+              ,particles: _L.fromArray([])
+              ,player: A9(MovingObject,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              15,
+              20,
+              colorSpaceship)
+              ,playerScore: 0
+              ,stageName: "Pro 4"
+              ,state: Intro
+              ,timeLimit: 0};
+   var pro5 = {_: {}
+              ,asteroidCount: 0
+              ,asteroids: _L.fromArray([])
+              ,bullets: _L.fromArray([])
+              ,ctrlTime: 0
+              ,duration: 0
+              ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-200)("Now it\'s up to you to stop the debris from falling back to earth and turning everyone into toned and ripped monsters.")(function ($) {
+                 return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                          ,"impact"]))($));
+              })($Basics.identity)])
+              ,particles: _L.fromArray([])
+              ,player: A9(MovingObject,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              15,
+              20,
+              colorSpaceship)
+              ,playerScore: 0
+              ,stageName: "Pro 5"
+              ,state: Intro
+              ,timeLimit: 0};
+   var level1 = {_: {}
+                ,asteroidCount: 3
+                ,asteroids: _L.fromArray([])
+                ,bullets: _L.fromArray([])
+                ,ctrlTime: 0
+                ,duration: 0
+                ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-200)("Level 1")(function ($) {
+                   return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                            ,"impact"]))($));
+                })($Basics.identity)])
+                ,particles: _L.fromArray([])
+                ,player: A9(MovingObject,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                15,
+                20,
+                colorSpaceship)
+                ,playerScore: 0
+                ,stageName: "Level 1"
+                ,state: Intro
+                ,timeLimit: 1800};
+   var level2 = {_: {}
+                ,asteroidCount: 5
+                ,asteroids: _L.fromArray([])
+                ,bullets: _L.fromArray([])
+                ,ctrlTime: 0
+                ,duration: 0
+                ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-100)("Level 2")(function ($) {
+                   return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                            ,"impact"]))($));
+                })($Basics.identity)])
+                ,particles: _L.fromArray([])
+                ,player: A9(MovingObject,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                15,
+                20,
+                colorSpaceship)
+                ,playerScore: 0
+                ,stageName: "Level 2"
+                ,state: Intro
+                ,timeLimit: 3600};
+   var level3 = {_: {}
+                ,asteroidCount: 10
+                ,asteroids: _L.fromArray([])
+                ,bullets: _L.fromArray([])
+                ,ctrlTime: 0
+                ,duration: 0
+                ,messages: _L.fromArray([Message(0)(0)(0)(0)(0)(-1)(25)(-100)("Level 3: The Final Level")(function ($) {
+                   return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                            ,"impact"]))($));
+                })($Basics.identity)])
+                ,particles: _L.fromArray([])
+                ,player: A9(MovingObject,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                15,
+                20,
+                colorSpaceship)
+                ,playerScore: 0
+                ,stageName: "Level 3"
+                ,state: Intro
+                ,timeLimit: 5400};
+   var update = F2(function (_v56,
+   _v57) {
+      return function () {
+         return function () {
+            return function () {
+               var newCount = _v57.asteroidCount;
+               var newCtrlTime = _v56.ctrl ? _v56.time : _v57.ctrlTime;
+               var newTimeLimit = _v57.timeLimit;
+               var newDuration = _U.eq(_v57.state,
+               Play) ? _v57.duration + 1 : _v57.duration;
+               var identityCallback = F2(function (a,
+               b) {
+                  return !_U.eq(a.x,
+                  b.x) && (!_U.eq(a.y,
+                  b.y) && !_U.eq(a.rotation,
+                  b.rotation)) ? _L.fromArray([b]) : _L.fromArray([b]);
+               });
+               var asteroidbulletCollisions = A3(getListCollision,
+               identityCallback,
+               _v57.bullets,
+               _v57.asteroids);
+               var newScore = _v57.playerScore + 100 * $List.length(asteroidbulletCollisions);
+               var realCtrl = _v56.ctrl && _U.cmp($Time.inMilliseconds(_v56.time) - $Time.inMilliseconds(_v57.ctrlTime),
+               ctrlTimer / 1000) > 0;
+               var newState = _U.eq(_v57.state,
+               Menu) ? realCtrl ? Intro : Menu : _U.eq(_v57.state,
+               Intro) ? _U.cmp($List.length(_v57.messages),
+               0) > 0 ? Intro : Play : _U.eq(_v57.state,
+               Play) ? _U.cmp(_v57.player.health,
+               1) < 0 ? Lose : _U.cmp(_v57.duration,
+               _v57.timeLimit) > 0 && _U.eq($List.length(_v57.asteroids),
+               0) ? Win : realCtrl ? Pause : Play : _U.eq(_v57.state,
+               Pause) ? realCtrl ? Play : Pause : (_U.eq(_v57.state,
+               Win) || _U.eq(_v57.state,
+               Lose)) && realCtrl ? Menu : _v57.state;
+               var $ = _v56.window,
+               windowW = $._0,
+               windowH = $._1;
+               var floatWindow = {ctor: "_Tuple2"
+                                 ,_0: $Basics.toFloat(windowW)
+                                 ,_1: $Basics.toFloat(windowH)};
+               var newMessages = A2(moveObjects,
+               floatWindow,
+               _v57.messages);
+               var randomSeed = $Random.initialSeed($Basics.round(1000 * $Time.inMilliseconds(_v56.time)));
+               var newParticles = function () {
+                  var asteroidplayerCollisions = A3(getListCollision,
+                  identityCallback,
+                  _L.fromArray([_v57.player]),
+                  _v57.asteroids);
+                  var movedParticles = moveObjects(floatWindow)(A8(explodeList,
+                  1,
+                  25,
+                  25,
+                  -10,
+                  50,
+                  randomSeed,
+                  _L.fromArray([$Color.complement(_v57.player.color)
+                               ,colorShield1
+                               ,colorShield2
+                               ,colorShield3
+                               ,colorShield4]),
+                  asteroidplayerCollisions)(A8(explodeList,
+                  1,
+                  25,
+                  1,
+                  -15,
+                  50,
+                  randomSeed,
+                  _L.fromArray([colorAsteroid1
+                               ,colorAsteroid2
+                               ,colorAsteroid3
+                               ,colorAsteroid4]),
+                  asteroidbulletCollisions)(_v57.particles)));
+                  return _U.eq(_v57.state,
+                  Play) || _U.eq(_v57.state,
+                  Intro) ? function () {
+                     var $ = A2($Random.generate,
+                     A2($Random.$float,
+                     $Basics.turns(-2.0e-2),
+                     $Basics.turns(2.0e-2)),
+                     randomSeed),
+                     boosterWiggle = $._0,
+                     boosterSeed = $._1;
+                     return _v56.space ? A6(shootObj,
+                     {ctor: "_Tuple2"
+                     ,_0: _v57.player.x - (_v57.player.radius / 2 + 10) * $Basics.cos(_v57.player.rotation)
+                     ,_1: _v57.player.y - (_v57.player.radius / 2 + 10) * $Basics.sin(_v57.player.rotation)},
+                     _v57.player.rotation + $Basics.turns(0.5) + boosterWiggle,
+                     7,
+                     -10,
+                     1,
+                     colorJetstream)(movedParticles) : movedParticles;
+                  }() : _U.eq(_v57.state,
+                  Lose) ? A9(explodeObject,
+                  0.5,
+                  _v57.player,
+                  _v57.player.radius / 2,
+                  25,
+                  -10,
+                  50,
+                  randomSeed,
+                  _L.fromArray([colorAsteroid1
+                               ,colorAsteroid2
+                               ,colorAsteroid3
+                               ,colorAsteroid4]),
+                  movedParticles) : _v57.particles;
+               }();
+               var onAsteroidAsteroidCollision = F2(function (asteroid,
+               asteroid2) {
+                  return !_U.eq(asteroid.x,
+                  asteroid2.x) && (!_U.eq(asteroid.y,
+                  asteroid2.y) && !_U.eq(asteroid.rotation,
+                  asteroid2.rotation)) ? function () {
+                     var getV = F7(function (m1,
+                     m2,
+                     v1,
+                     v2,
+                     a1,
+                     a2,
+                     contactAngle) {
+                        return function () {
+                           var topPart = v1 * $Basics.cos(a1 - contactAngle) * (m1 - m2) + 2 * m2 * v2 * $Basics.cos(a2 - contactAngle);
+                           var vx = topPart * $Basics.cos(contactAngle) / (m1 + m2) + v1 * $Basics.sin(a1 - contactAngle) * $Basics.cos(contactAngle + $Basics.turns(0.25));
+                           var vy = topPart * $Basics.sin(contactAngle) / (m1 + m2) + v1 * $Basics.sin(a1 - contactAngle) * $Basics.sin(contactAngle + $Basics.turns(0.25));
+                           return {ctor: "_Tuple2"
+                                  ,_0: vx
+                                  ,_1: vy};
+                        }();
+                     });
+                     var calcV = F6(function (ma1,
+                     ma2,
+                     ve1,
+                     ve2,
+                     an1,
+                     an2) {
+                        return $Basics.sin(an1 - an2) / (ma2 * ($Basics.sin(an1) * (asteroid.vx + asteroid2.vx) - $Basics.cos(an1) * (asteroid.vy + asteroid2.vy)));
+                     });
+                     var calcNewV = F4(function (mass1,
+                     mass2,
+                     vel1,
+                     vel2) {
+                        return (vel1 * (mass1 - mass2) + 2 * mass2 * vel2) / (mass1 + mass2);
+                     });
+                     var vx2 = A4(calcNewV,
+                     asteroid2.radius,
+                     asteroid.radius,
+                     asteroid2.vx,
+                     asteroid.vx);
+                     var vy2 = A4(calcNewV,
+                     asteroid2.radius,
+                     asteroid.radius,
+                     asteroid2.vy,
+                     asteroid.vy);
+                     var $ = $Basics.toPolar({ctor: "_Tuple2"
+                                             ,_0: asteroid.x - asteroid2.x
+                                             ,_1: asteroid.y - asteroid2.y}),
+                     difference = $._0,
+                     theta = $._1;
+                     var $ = $Basics.fromPolar({ctor: "_Tuple2"
+                                               ,_0: asteroid.radius + asteroid2.radius + 1
+                                               ,_1: theta}),
+                     dx = $._0,
+                     dy = $._1;
+                     var angleOfReflection = theta + $Basics.turns(0.25);
+                     var oppositeAngleOfReflecion = angleOfReflection + $Basics.turns(0.5);
+                     var $ = $Basics.toPolar({ctor: "_Tuple2"
+                                             ,_0: asteroid2.vx
+                                             ,_1: asteroid2.vy}),
+                     m2 = $._0,
+                     t2 = $._1;
+                     var newAngle2 = angleOfReflection - (t2 - oppositeAngleOfReflecion);
+                     var $ = $Basics.toPolar({ctor: "_Tuple2"
+                                             ,_0: asteroid.vx
+                                             ,_1: asteroid.vy}),
+                     m1 = $._0,
+                     t1 = $._1;
+                     var newAngle1 = angleOfReflection - (t1 - oppositeAngleOfReflecion);
+                     var newV2 = A6(calcV,
+                     asteroid.radius,
+                     asteroid2.radius,
+                     m1,
+                     m2,
+                     0 - oppositeAngleOfReflecion + t1,
+                     0 - oppositeAngleOfReflecion + t2);
+                     var $ = $Basics.fromPolar({ctor: "_Tuple2"
+                                               ,_0: newV2
+                                               ,_1: newAngle2}),
+                     calcedX = $._0,
+                     calcedY = $._1;
+                     var $ = A7(getV,
+                     asteroid2.radius,
+                     asteroid.radius,
+                     m2,
+                     m1,
+                     t2,
+                     t1,
+                     angleOfReflection + $Basics.turns(0.25)),
+                     mX = $._0,
+                     mY = $._1;
+                     return _L.fromArray([_U.replace([["x"
+                                                      ,asteroid.x - dx]
+                                                     ,["y",asteroid.y - dy]
+                                                     ,["vx",mX]
+                                                     ,["vy",mY]],
+                     asteroid2)]);
+                  }() : _L.fromArray([asteroid2]);
+               });
+               var onPlayerAsteroidCollision = F2(function (listAsteroids,
+               playerObj) {
+                  return function () {
+                     var callback = F2(function (a,
+                     b) {
+                        return _L.fromArray([b]);
+                     });
+                     var aftermath = A3(getCollision,
+                     callback,
+                     playerObj,
+                     listAsteroids);
+                     var factor = function () {
+                        switch (aftermath.ctor)
+                        {case "Just":
+                           return $List.length(aftermath._0);
+                           case "Nothing": return 0;}
+                        _U.badCase($moduleName,
+                        "between lines 305 and 308");
+                     }();
+                     return _U.replace([["health"
+                                        ,playerObj.health - factor]
+                                       ,["radius"
+                                        ,playerObj.radius + 15 * $Basics.toFloat(factor)]],
+                     playerObj);
+                  }();
+               });
+               var newPlayer = _U.eq(_v57.state,
+               Play) || _U.eq(_v57.state,
+               Intro) ? movePlayer(_v56)(onPlayerAsteroidCollision(_v57.asteroids)(_v57.player)) : _U.eq(_v57.state,
+               Menu) ? _v57.player : _v57.player;
+               var onBulletAsteroidCollision = F2(function (asteroid,
+               bullet) {
+                  return _L.fromArray([]);
+               });
+               var newBullets = _U.eq(_v57.state,
+               Intro) || _U.eq(_v57.state,
+               Play) ? function () {
+                  var movedBullets = moveObjects(floatWindow)(A2(listCollision,
+                  onBulletAsteroidCollision,
+                  _v57.asteroids)(_v57.bullets));
+                  return _v56.click && _U.cmp($List.length(_v57.bullets),
+                  maxBullets) < 0 ? A6(shootObj,
+                  {ctor: "_Tuple2"
+                  ,_0: _v57.player.x + _v57.player.radius * $Basics.cos(_v57.player.rotation)
+                  ,_1: _v57.player.y + _v57.player.radius * $Basics.sin(_v57.player.rotation)},
+                  _v57.player.rotation,
+                  15,
+                  -50,
+                  5,
+                  $Color.white)(movedBullets) : movedBullets;
+               }() : _v57.bullets;
+               var onAsteroidBulletCollision = F2(function (bullet,
+               asteroid) {
+                  return function () {
+                     var $ = A2($Random.generate,
+                     A2($Random.$int,0,1),
+                     randomSeed),
+                     x = $._0,
+                     randomerSeed = $._1;
+                     var $ = A2($Random.generate,
+                     A2($Random.$int,0,1),
+                     randomerSeed),
+                     x2 = $._0,
+                     randomestSeed = $._1;
+                     var asteroidColor = $Color.toRgb(asteroid.color);
+                     var newColor = _U.eq(asteroidColor.red,
+                     94) ? colorRock3 : _U.eq(asteroidColor.red,
+                     164) ? colorRock2 : colorRock1;
+                     var spawn = F2(function (seed,
+                     list) {
+                        return A7(spawnObj,
+                        1.0,
+                        {ctor: "_Tuple2"
+                        ,_0: asteroid.x
+                        ,_1: asteroid.y},
+                        {ctor: "_Tuple2"
+                        ,_0: asteroid.radius * 2
+                        ,_1: asteroid.radius * 2},
+                        0.0,
+                        seed,
+                        _U.replace([["color",newColor]
+                                   ,["radius",asteroid.radius / 2]
+                                   ,["health"
+                                    ,asteroid.health / 4 | 0]],
+                        asteroid),
+                        list);
+                     });
+                     var spawn1 = A2(spawn,
+                     randomSeed,
+                     _L.fromArray([]));
+                     var spawn2 = A2(spawn,
+                     randomerSeed,
+                     spawn1);
+                     var spawn3 = A2(spawn,
+                     randomestSeed,
+                     spawn2);
+                     return A2($List.take,2,spawn3);
+                  }();
+               });
+               var newAsteroids = _U.eq(_v57.state,
+               Play) ? function () {
+                  var collidedAsteroids = A2(listCollision,
+                  onAsteroidBulletCollision,
+                  _v57.bullets)(A2(listCollision,
+                  onAsteroidBulletCollision,
+                  _L.fromArray([_v57.player]))(A2(listCollision,
+                  onAsteroidAsteroidCollision,
+                  _v57.asteroids)(_v57.asteroids)));
+                  var movedAsteroids = A2(moveObjects,
+                  floatWindow,
+                  collidedAsteroids);
+                  return _U.cmp($List.length(_v57.asteroids),
+                  _v57.asteroidCount) < 0 && _U.cmp(_v57.duration,
+                  _v57.timeLimit) < 0 ? function () {
+                     var spawnedAsteroids = A7(spawnObj,
+                     5.0e-2,
+                     {ctor: "_Tuple2",_0: 0,_1: 0},
+                     floatWindow,
+                     128,
+                     randomSeed,
+                     A9(MovingObject,
+                     100,
+                     100,
+                     0,
+                     0,
+                     0,
+                     0,
+                     128,
+                     128,
+                     colorRock4),
+                     movedAsteroids);
+                     return spawnedAsteroids;
+                  }() : movedAsteroids;
+               }() : _v57.asteroids;
+               var onAsteroidPlayerCollision = F2(function (player,
+               asteroid) {
+                  return _L.fromArray([]);
+               });
+               return _U.eq(_v57.state,
+               Lose) && realCtrl ? _U.replace([["ctrlTime"
+                                               ,newCtrlTime]],
+               startGame) : _U.eq(_v57.state,
+               Play) && (_U.cmp(_v57.duration,
+               _v57.timeLimit) > 0 && (_U.eq($List.length(_v57.asteroids),
+               0) && _U.cmp(_v57.player.health,
+               0) > 0)) ? function () {
+                  var nextStage = _U.eq(_v57.stageName,
+                  "Pro 0") ? pro1 : _U.eq(_v57.stageName,
+                  "Pro 1") ? pro2 : _U.eq(_v57.stageName,
+                  "Pro 2") ? pro3 : _U.eq(_v57.stageName,
+                  "Pro 3") ? pro4 : _U.eq(_v57.stageName,
+                  "Pro 4") ? pro5 : _U.eq(_v57.stageName,
+                  "Pro 5") ? level1 : _U.eq(_v57.stageName,
+                  "Level 1") ? level2 : level3;
+                  var nextPlayer = nextStage.player;
+                  return _U.replace([["ctrlTime"
+                                     ,newCtrlTime]
+                                    ,["playerScore",newScore]
+                                    ,["player"
+                                     ,_U.replace([["x",_v57.player.x]
+                                                 ,["y",_v57.player.y]
+                                                 ,["vx",_v57.player.vx]
+                                                 ,["vy",_v57.player.vy]
+                                                 ,["rotation"
+                                                  ,_v57.player.rotation]],
+                                     nextPlayer)]
+                                    ,["particles",_v57.particles]
+                                    ,["bullets",_v57.bullets]],
+                  nextStage);
+               }() : _U.replace([["state"
+                                 ,newState]
+                                ,["player",newPlayer]
+                                ,["playerScore",newScore]
+                                ,["asteroids",newAsteroids]
+                                ,["bullets",newBullets]
+                                ,["particles",newParticles]
+                                ,["messages",newMessages]
+                                ,["duration",newDuration]
+                                ,["timeLimit",newTimeLimit]
+                                ,["ctrlTime",newCtrlTime]
+                                ,["asteroidCount",newCount]],
+               _v57);
+            }();
+         }();
+      }();
+   });
+   var view = F2(function (_v62,
+   game) {
+      return function () {
+         switch (_v62.ctor)
+         {case "_Tuple2":
+            return function () {
+                 var $ = {ctor: "_Tuple2"
+                         ,_0: $Basics.toFloat(_v62._0)
+                         ,_1: $Basics.toFloat(_v62._1)},
+                 w = $._0,
+                 h = $._1;
+                 var $ = {ctor: "_Tuple2"
+                         ,_0: w / 2
+                         ,_1: h / 2},
+                 x = $._0,
+                 y = $._1;
+                 var scaleWithWindow = $Graphics$Collage.scale(A2(scaleToFit,
+                 {ctor: "_Tuple2",_0: w,_1: h},
+                 {ctor: "_Tuple2"
+                 ,_0: 1920
+                 ,_1: 1080}));
+                 return $Graphics$Element.layers(_L.fromArray([A3($Graphics$Collage.collage,
+                                                              _v62._0,
+                                                              _v62._1,
+                                                              _L.fromArray([$Graphics$Collage.move({ctor: "_Tuple2"
+                                                                                                   ,_0: 0
+                                                                                                   ,_1: 0})($Graphics$Collage.filled($Color.black)(A2($Graphics$Collage.rect,
+                                                              w,
+                                                              h)))]))
+                                                              ,A3($Graphics$Collage.collage,
+                                                              _v62._0,
+                                                              _v62._1,
+                                                              _U.eq(game.state,
+                                                              Play) || (_U.eq(game.state,
+                                                              Intro) || (_U.eq(game.state,
+                                                              Pause) || _U.eq(game.state,
+                                                              Lose))) ? A2($List.map,
+                                                              scaleWithWindow,
+                                                              $List.concat(_L.fromArray([A2($List.map,
+                                                                                        renderBullet,
+                                                                                        game.bullets)
+                                                                                        ,A2($List._op["::"],
+                                                                                        renderPlayer(game.player),
+                                                                                        A2($List.map,
+                                                                                        renderAsteroid,
+                                                                                        game.asteroids))
+                                                                                        ,A2($List.map,
+                                                                                        renderParticle,
+                                                                                        game.particles)]))) : _L.fromArray([]))
+                                                              ,A3($Graphics$Collage.collage,
+                                                              _v62._0,
+                                                              _v62._1,
+                                                              A2($List.map,
+                                                              scaleWithWindow,
+                                                              A2($List.map,
+                                                              renderText,
+                                                              function () {
+                                                                 var pause = _L.fromArray([Message(0)(0)(0)(0)(0)(0)(400)(10000)("PAUSED")(function ($) {
+                                                                    return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                             ,"impact"]))($));
+                                                                 })($Basics.identity)]);
+                                                                 var win = _L.fromArray([Message(0)(0)(0)(0)(0)(0)(400)(10000)("HOORAY!!!\nYOU DID IT!")(function ($) {
+                                                                                           return $Text.color(colorHUD3)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                     ,"impact"]))($));
+                                                                                        })($Basics.identity)
+                                                                                        ,Message(0)(0)(0)(0)(0)(0)(50)(10000)(A2($Basics._op["++"],
+                                                                                        "You saved all of mankind with your heroic acts today and earned ",
+                                                                                        A2($Basics._op["++"],
+                                                                                        A3($String.padLeft,
+                                                                                        5,
+                                                                                        _U.chr("0"),
+                                                                                        $Basics.toString(game.playerScore)),
+                                                                                        " total points!\n Go eat an entire tub of ice cream or something! You deserve it!")))(function ($) {
+                                                                                           return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                    ,"impact"]))($));
+                                                                                        })($Basics.identity)]);
+                                                                 var lose = _L.fromArray([Message(0)(0)(0)(0)(0)(0)(400)(10000)("WHOOPS!\nYOU DIED!")(function ($) {
+                                                                                            return $Text.color(colorHUD2)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                      ,"impact"]))($));
+                                                                                         })($Basics.identity)
+                                                                                         ,Message(0)(0)(0)(0)(0)(0)(50)(10000)("Your muscles got too big and tore your body in half in a violent and bloody explosion\nThe remaining asteroids then fell to earth and exploded everyone there too :(")(function ($) {
+                                                                                            return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                     ,"impact"]))($));
+                                                                                         })($Basics.identity)]);
+                                                                 var totalFrames = A2($Basics.max,
+                                                                 0,
+                                                                 game.timeLimit - game.duration);
+                                                                 var totalSec = totalFrames / 30;
+                                                                 var totalMin = totalSec / 60;
+                                                                 var minRemaining = $Basics.floor(totalMin);
+                                                                 var secRemaining = $Basics.floor(totalSec - $Basics.toFloat(minRemaining) * 60);
+                                                                 var framesRemaining = $Basics.floor(totalFrames - $Basics.toFloat(secRemaining) * 1000);
+                                                                 var timerColor = _U.eq(A2($Basics.max,
+                                                                 0,
+                                                                 totalFrames),
+                                                                 0) ? colorHUD3 : colorHUD;
+                                                                 var timer = _L.fromArray([Message(0)((0 - h) / 2 + 30)(0)(0)(0)(0)(50)(10000)(A2($Basics._op["++"],
+                                                                 A3($String.padLeft,
+                                                                 2,
+                                                                 _U.chr("0"),
+                                                                 $Basics.toString(minRemaining)),
+                                                                 A2($Basics._op["++"],
+                                                                 ":",
+                                                                 A3($String.padLeft,
+                                                                 2,
+                                                                 _U.chr("0"),
+                                                                 $Basics.toString(secRemaining)))))(function ($) {
+                                                                    return $Text.color(timerColor)($Text.bold($Text.typeface(_L.fromArray(["monospace"
+                                                                                                                                          ,"impact"]))($)));
+                                                                 })($Basics.identity)]);
+                                                                 var score = _L.fromArray([Message(0)(h / 2 - 50)(0)(0)(0)(0)(50)(10000)(A2($Basics._op["++"],
+                                                                 "Score: ",
+                                                                 A3($String.padLeft,
+                                                                 5,
+                                                                 _U.chr("0"),
+                                                                 $Basics.toString(game.playerScore))))(function ($) {
+                                                                    return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["impact"
+                                                                                                                             ,"impact"]))($));
+                                                                 })($Basics.identity)]);
+                                                                 var ammo = _L.fromArray([Message(335)((0 - h) / 2 + 25)(0)(0)(0)(0)(25)(10000)(A2($Basics._op["++"],
+                                                                 "Ammo:",
+                                                                 A3($String.padLeft,
+                                                                 2,
+                                                                 _U.chr("0"),
+                                                                 $Basics.toString(maxBullets - $List.length(game.bullets)))))(function ($) {
+                                                                    return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                                                                             ,"impact"]))($));
+                                                                 })($Basics.identity)]);
+                                                                 var health = _L.fromArray([Message(-335)((0 - h) / 2 + 25)(0)(0)(0)(0)(25)(10000)(A2($Basics._op["++"],
+                                                                 "Health:",
+                                                                 A3($String.padLeft,
+                                                                 2,
+                                                                 _U.chr("0"),
+                                                                 $Basics.toString(game.player.health))))(function ($) {
+                                                                    return $Text.color(colorHUD)($Text.typeface(_L.fromArray(["monospace"
+                                                                                                                             ,"impact"]))($));
+                                                                 })($Basics.identity)]);
+                                                                 var menu = _L.fromArray([Message(0)(0)(0)(0)(0)(0)(400)(10000)("ANABOLIC ASTEROIDS")(function ($) {
+                                                                                            return $Text.color(colorHUD)($Text.bold($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                                ,"impact"]))($)));
+                                                                                         })($Basics.identity)
+                                                                                         ,Message(0)(0)(0)(0)(0)(0)(50)(1)("Coded by Michael Yuan         Press CTRL to start the game")(function ($) {
+                                                                                            return $Text.color(colorHUD2)($Text.bold($Text.typeface(_L.fromArray(["impact"
+                                                                                                                                                                 ,"arial"]))($)));
+                                                                                         })($Basics.identity)]);
+                                                                 var append = A2($String.startsWith,
+                                                                 "Pro",
+                                                                 game.stageName) ? _L.fromArray([]) : _U.eq(game.state,
+                                                                 Play) ? $List.concat(_L.fromArray([health
+                                                                                                   ,timer
+                                                                                                   ,ammo
+                                                                                                   ,score])) : _U.eq(game.state,
+                                                                 Pause) ? $List.concat(_L.fromArray([health
+                                                                                                    ,timer
+                                                                                                    ,ammo
+                                                                                                    ,score
+                                                                                                    ,pause])) : _U.eq(game.state,
+                                                                 Menu) ? menu : _U.eq(game.state,
+                                                                 Win) ? $List.concat(_L.fromArray([health
+                                                                                                  ,timer
+                                                                                                  ,ammo
+                                                                                                  ,score
+                                                                                                  ,win])) : _U.eq(game.state,
+                                                                 Lose) ? $List.concat(_L.fromArray([health
+                                                                                                   ,timer
+                                                                                                   ,ammo
+                                                                                                   ,score
+                                                                                                   ,lose])) : _L.fromArray([]);
+                                                                 return _U.eq(game.state,
+                                                                 Menu) ? menu : A2($List.append,
+                                                                 append,
+                                                                 game.messages);
+                                                              }())))]));
+              }();}
+         _U.badCase($moduleName,
+         "between lines 644 and 688");
+      }();
+   });
+   var main = A3($Signal.map2,
+   view,
+   $Window.dimensions,
+   A3($Signal.foldp,
+   update,
+   startGame,
+   input));
+   _elm.Main.values = {_op: _op
+                      ,colorHUD: colorHUD
+                      ,colorHUD2: colorHUD2
+                      ,colorHUD3: colorHUD3
+                      ,colorSpaceship: colorSpaceship
+                      ,colorShield: colorShield
+                      ,colorBullets: colorBullets
+                      ,colorJetstream: colorJetstream
+                      ,colorRock1: colorRock1
+                      ,colorRock2: colorRock2
+                      ,colorRock3: colorRock3
+                      ,colorRock4: colorRock4
+                      ,colorAsteroid1: colorAsteroid1
+                      ,colorAsteroid2: colorAsteroid2
+                      ,colorAsteroid3: colorAsteroid3
+                      ,colorAsteroid4: colorAsteroid4
+                      ,colorShield1: colorShield1
+                      ,colorShield2: colorShield2
+                      ,colorShield3: colorShield3
+                      ,colorShield4: colorShield4
+                      ,maxBullets: maxBullets
+                      ,ctrlTimer: ctrlTimer
+                      ,Intro: Intro
+                      ,Menu: Menu
+                      ,Play: Play
+                      ,Pause: Pause
+                      ,Win: Win
+                      ,Lose: Lose
+                      ,MovingObject: MovingObject
+                      ,Message: Message
+                      ,Game: Game
+                      ,Input: Input
+                      ,startGame: startGame
+                      ,pro1: pro1
+                      ,pro2: pro2
+                      ,pro3: pro3
+                      ,pro4: pro4
+                      ,pro5: pro5
+                      ,level1: level1
+                      ,level2: level2
+                      ,level3: level3
+                      ,randomInt: randomInt
+                      ,update: update
+                      ,movePlayer: movePlayer
+                      ,moveObject: moveObject
+                      ,Spinable: Spinable
+                      ,moveObjects: moveObjects
+                      ,shootObj: shootObj
+                      ,spawnObj: spawnObj
+                      ,checkCollision: checkCollision
+                      ,getCollision: getCollision
+                      ,listCollision: listCollision
+                      ,getListCollision: getListCollision
+                      ,explodeObject: explodeObject
+                      ,explodeList: explodeList
+                      ,wrapScreen: wrapScreen
+                      ,wrapHorizontal: wrapHorizontal
+                      ,wrapVertical: wrapVertical
+                      ,wrapAny: wrapAny
+                      ,view: view
+                      ,renderText: renderText
+                      ,renderPlayer: renderPlayer
+                      ,renderAsteroid: renderAsteroid
+                      ,renderBullet: renderBullet
+                      ,renderParticle: renderParticle
+                      ,scaleToFit: scaleToFit
+                      ,main: main
+                      ,delta: delta
+                      ,input: input
+                      ,timeSoFar: timeSoFar};
+   return _elm.Main.values;
+};
